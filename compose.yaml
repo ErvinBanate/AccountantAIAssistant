@@ -1,0 +1,102 @@
+name: ledgerly
+
+x-application: &application
+  image: ledgerly-app:local
+  build:
+    context: .
+    target: app
+  environment: &app-environment
+    APP_NAME: Ledgerly
+    APP_ENV: ${APP_ENV:-local}
+    APP_DEBUG: ${APP_DEBUG:-false}
+    APP_URL: ${APP_URL:-http://localhost:8080}
+    APP_KEY: ${APP_KEY:-}
+    LOG_CHANNEL: stderr
+    DB_CONNECTION: mysql
+    DB_HOST: db
+    DB_PORT: 3306
+    DB_DATABASE: ${DB_DATABASE:-ledgerly}
+    DB_USERNAME: ${DB_USERNAME:-ledgerly}
+    DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env.docker}
+    SESSION_DRIVER: database
+    CACHE_STORE: database
+    QUEUE_CONNECTION: database
+    DB_QUEUE_RETRY_AFTER: 360
+    MAIL_MAILER: log
+    GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+    GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:8080/gmail/callback}
+    OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+  volumes:
+    - storage:/var/www/html/storage
+    - app-key:/var/www/ledgerly-secrets:ro
+
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-ledgerly}
+      MYSQL_USER: ${DB_USERNAME:-ledgerly}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env.docker}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env.docker}
+    volumes:
+      - database:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_PASSWORD\" mysql --host=127.0.0.1 --user=\"$$MYSQL_USER\" --database=\"$$MYSQL_DATABASE\" --execute='SELECT 1' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    restart: unless-stopped
+
+  init:
+    <<: *application
+    command: ["init"]
+    volumes:
+      - storage:/var/www/html/storage
+      - app-key:/var/www/ledgerly-secrets
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    <<: *application
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:80"
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1/up') === false ? 1 : 0);"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  queue:
+    <<: *application
+    user: www-data
+    command: ["php", "artisan", "queue:work", "database", "--sleep=3", "--timeout=300", "--tries=3"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    stop_grace_period: 330s
+    restart: unless-stopped
+
+  scheduler:
+    <<: *application
+    user: www-data
+    command: ["php", "artisan", "schedule:work", "--no-interaction"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+volumes:
+  database:
+  storage:
+  app-key:

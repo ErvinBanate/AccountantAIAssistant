@@ -1,0 +1,10 @@
+client,client_email,period,description,currency,amount
+Northstar Trading,mara@northstar.example,2026-Q3,Office supplies,PHP,48500.00
+Northstar Trading,mara@northstar.example,2026-Q3,Software subscriptions,PHP,32400.00
+Northstar Trading,mara@northstar.example,2026-Q3,Professional fees,PHP,76000.00
+Meridian Studio,finance@meridian.example,2026-10,Opening balance,PHP,24800.00
+Meridian Studio,finance@meridian.example,2026-10,Payments received,PHP,105000.00
+Meridian Studio,finance@meridian.example,2026-10,Closing balance,PHP,12600.00
+Harbor & Co.,admin@harbor.example,2026-10,Tax payment,PHP,8600.00
+Pinecrest Retail,accounts@pinecrest.example,2026-10,Apex Supplies payment recorded,PHP,18750.00
+Harbor Studio,studio@harbor.example,2026-10,Approved expenses,PHP,12500.00
